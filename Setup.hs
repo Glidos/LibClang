@@ -1,8 +1,9 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE CPP #-}
+import Distribution.Compat.Graph(toList)
 import Distribution.Simple
 import Distribution.PackageDescription
-import Data.Version
+import Distribution.Version
 import Data.List
 import Data.Char(isSpace)
 import Data.Maybe
@@ -30,7 +31,7 @@ import Distribution.Simple.Setup(BuildFlags, ConfigFlags, configConfigurationsFl
 import Distribution.PackageDescription(FlagName)
 import Distribution.Verbosity
 import Distribution.System(buildOS, OS(OSX))
-import Distribution.Simple.Utils(copyFileVerbose, die)
+import Distribution.Simple.Utils(copyFileVerbose, die', IOData(IODataText))
 import Distribution.Simple.BuildPaths(mkProfLibName, mkLibName)
 import Distribution.Package(ComponentId)
 import Control.Monad
@@ -94,7 +95,7 @@ setupLLVMPkgConfig tmpPCPath outf = do
                      ,"URL: http://www.llvm.org/"
                      ,"Requires:"
                      ,"Conflicts:"
-                     ,"Libs: -L" ++ libPath ++ " -lLLVM-" ++ version
+                     ,"Libs: -L" ++ libPath ++ " -lLLVM"
                      ,"Cflags: -I" ++ includePath]
       pkgConfigPath = "PKG_CONFIG_PATH"
   hPutStr outf pc
@@ -116,7 +117,7 @@ withTmpPC runM = do
 linkWithLLVMLibs :: LocalBuildInfo -> BuildFlags -> IO ()
 linkWithLLVMLibs lbi flags =
   let verbosity = fromFlag (buildVerbosity flags)
-      componentLibs = concatMap componentLibNames $ componentsConfigs lbi
+      componentLibs = concatMap ((:[]) . componentUnitId) $ toList $ componentGraph lbi
    in do
     (_,libPath,_) <- getLLVMDetails
     cwd <- getCurrentDirectory
@@ -142,10 +143,6 @@ linkWithLLVMLibs lbi flags =
       mkStaticLib :: String -> String
       mkStaticLib lname = "lib" ++ lname <.> "a"
 
-      componentLibNames :: (ComponentName, ComponentLocalBuildInfo, [ComponentName]) -> [UnitId]
-      componentLibNames (_, LibComponentLocalBuildInfo {..}, _) = [componentUnitId]
-      componentLibNames _                                       = []
-
       mergeLibraries :: Verbosity -> LocalBuildInfo -> [FilePath] -> FilePath -> IO ()
       mergeLibraries verbosity lbi libclangLibs libName = do
         let libtool = runLibtool verbosity lbi
@@ -168,10 +165,10 @@ linkWithLLVMLibs lbi flags =
       runAr :: Verbosity -> LocalBuildInfo -> [String] -> String -> IO ()
       runAr v lbi args script =
           case lookupProgram arProgram (withPrograms lbi) of
-            Nothing    -> die "Couldn't find required program 'ar'"
+            Nothing    -> die' normal "Couldn't find required program 'ar'"
             Just cProg -> runProgramInvocation v (progWithStdin cProg)
         where
-          progWithStdin prog = (programInvocation prog args') { progInvokeInput = Just script }
+          progWithStdin prog = (programInvocation prog args') { progInvokeInput = Just $ IODataText script }
           args' = if v >= deafening then "-v" : args else args
 
       runLibtool :: Verbosity -> LocalBuildInfo -> [String] -> IO ()
@@ -184,7 +181,7 @@ linkWithLLVMLibs lbi flags =
 
 buildHookM :: PackageDescription -> LocalBuildInfo -> UserHooks -> BuildFlags -> IO ()
 buildHookM pd lbi uh bf = do
-  let staticBuildingSpecified = lookup (FlagName "staticbuild") (configConfigurationsFlags (configFlags lbi))
+  let staticBuildingSpecified = lookupFlagAssignment (mkFlagName "staticbuild") (configConfigurationsFlags (configFlags lbi))
       buildNormally = (buildHook simpleUserHooks) pd lbi uh bf
   maybe
     ((buildHook simpleUserHooks) pd lbi uh bf)
@@ -201,9 +198,9 @@ pcHook = simpleUserHooks { confHook = confHookM, buildHook = buildHookM }
           let cdt = fromJust $ condLibrary gpd
               lib = condTreeData cdt
               lbi = libBuildInfo lib
-              vRange = withinVersion $ makeVersion [3,8]
+              vRange = withinVersion $ mkVersion [17]
               lbi' = lbi { pkgconfigDepends = pkgconfigDepends lbi ++
-                                              [Dependency (PackageName "llvm") vRange] }
+                                              [PkgconfigDependency (mkPkgconfigName "llvm") $ versionRangeToPkgconfigVersionRange vRange] }
               lib' = lib { libBuildInfo = lbi' }
               gpd' = gpd { condLibrary = Just (cdt { condTreeData = lib' }) }
           (confHook simpleUserHooks) (gpd', hbi) cf
