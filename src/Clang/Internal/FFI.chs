@@ -3360,8 +3360,19 @@ getCursorExtent _ c =
 --   CXType_ObjCId = 27,
 --   CXType_ObjCClass = 28,
 --   CXType_ObjCSel = 29,
+--   CXType_Float128 = 30,
+--   CXType_Half = 31,
+--   CXType_Float16 = 32,
+--   CXType_ShortAccum = 33,
+--   CXType_Accum = 34,
+--   CXType_LongAccum = 35,
+--   CXType_UShortAccum = 36,
+--   CXType_UAccum = 37,
+--   CXType_ULongAccum = 38,
+--   CXType_BFloat16 = 39,
+--   CXType_Ibm128 = 40,
 --   CXType_FirstBuiltin = CXType_Void,
---   CXType_LastBuiltin  = CXType_ObjCSel,
+--   CXType_LastBuiltin  = CXType_Ibm128,
 --   CXType_Complex = 100,
 --   CXType_Pointer = 101,
 --   CXType_BlockPointer = 102,
@@ -3479,6 +3490,17 @@ enum TypeKind
   , Type_ObjCId              = CXType_ObjCId
   , Type_ObjCClass           = CXType_ObjCClass
   , Type_ObjCSel             = CXType_ObjCSel
+  , Type_Float128            = CXType_Float128
+  , Type_Half                = CXType_Half
+  , Type_Float16             = CXType_Float16
+  , Type_ShortAccum          = CXType_ShortAccum
+  , Type_Accum               = CXType_Accum
+  , Type_LongAccum           = CXType_LongAccum
+  , Type_UShortAccum         = CXType_UShortAccum
+  , Type_UAccum              = CXType_UAccum
+  , Type_ULongAccum          = CXType_ULongAccum
+  , Type_BFloat16            = CXType_BFloat16
+  , Type_Ibm128              = CXType_Ibm128
   , Type_Complex             = CXType_Complex
   , Type_Pointer             = CXType_Pointer
   , Type_BlockPointer        = CXType_BlockPointer
@@ -3568,7 +3590,7 @@ enum TypeKind
 
 type_FirstBuiltin, type_LastBuiltin :: TypeKind
 type_FirstBuiltin = Type_Void
-type_LastBuiltin  = Type_ObjCSel
+type_LastBuiltin  = Type_Ibm128
 
 -- enum CXCallingConv {
 --   CXCallingConv_Default = 0,
