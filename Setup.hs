@@ -42,7 +42,6 @@ getLLVMDetails :: IO (String, FilePath, FilePath)
 getLLVMDetails =
   let tryElse act failAct = catchIOError act (const failAct)
   in
-  getLLVMDetails' "llvm-config-3.8"          `tryElse`
   getLLVMDetails' "llvm-config"              `tryElse`
   (getEnv "LLVM_CONFIG" >>= getLLVMDetails') `tryElse`
   (error "ERROR: cannot find llvm-config, please setup environment variable LLVM_CONFIG with location of llvm-config and try again")
@@ -198,7 +197,8 @@ pcHook = simpleUserHooks { confHook = confHookM, buildHook = buildHookM }
           let cdt = fromJust $ condLibrary gpd
               lib = condTreeData cdt
               lbi = libBuildInfo lib
-              vRange = withinVersion $ mkVersion [17]
+              vRange = intersectVersionRanges (orLaterVersion (mkVersion [17]))
+                                              (earlierVersion (mkVersion [20]))
               lbi' = lbi { pkgconfigDepends = pkgconfigDepends lbi ++
                                               [PkgconfigDependency (mkPkgconfigName "llvm") $ versionRangeToPkgconfigVersionRange vRange] }
               lib' = lib { libBuildInfo = lbi' }

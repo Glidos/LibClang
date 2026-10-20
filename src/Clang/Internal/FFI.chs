@@ -366,6 +366,7 @@ import Clang.Internal.Monad
 #include <stdlib.h>
 #include <stddef.h>
 #include <clang-c/Index.h>
+#include "clang19-enums.h"
 #include <stdio.h>
 #include "utils.h"
 #include "visitors.h"
@@ -1980,7 +1981,7 @@ reparseTranslationUnit tu ufs opts = liftIO $
 -- 
 --   /** OpenMP 5.0 [2.1.5, Array Section].
 --    */
---   CXCursor_OMPArraySectionExpr = 147,
+--   CXCursor_ArraySectionExpr = 147, /* Clang 17/18: CXCursor_OMPArraySectionExpr */
 -- 
 --   /** Represents an @available(...) check.
 --    */
@@ -2019,8 +2020,11 @@ reparseTranslationUnit tu ufs opts = liftIO $
 --    * initializer.
 --    */
 --   CXCursor_CXXParenListInitExpr = 155,
+--   CXCursor_PackIndexingExpr = 156,
 -- 
---   CXCursor_LastExpr = CXCursor_CXXParenListInitExpr,
+--   CXCursor_LastExpr = CXCursor_PackIndexingExpr,
+--   /* Haskell LastExpr binds the installed header's CXCursor_LastExpr:
+--      CXXParenListInitExpr on Clang 17/18, PackIndexingExpr on Clang 19. */
 -- 
 --   /* Statements */
 --   CXCursor_FirstStmt = 200,
@@ -2470,8 +2474,16 @@ reparseTranslationUnit tu ufs opts = liftIO $
 --   /** OpenMP error directive.
 --    */
 --   CXCursor_OMPErrorDirective = 305,
+--   CXCursor_OMPScopeDirective = 306,
+--   CXCursor_OMPReverseDirective = 307,
+--   CXCursor_OMPInterchangeDirective = 308,
+--   CXCursor_OpenACCComputeConstruct = 320,
+--   CXCursor_OpenACCLoopConstruct = 321,
 -- 
---   CXCursor_LastStmt = CXCursor_OMPErrorDirective,
+--   CXCursor_LastStmt = CXCursor_OpenACCLoopConstruct,
+--   /* Haskell LastStmt binds the installed header's CXCursor_LastStmt:
+--      OMPErrorDirective on Clang 17, OMPScopeDirective on Clang 18,
+--      OpenACCLoopConstruct on Clang 19. */
 -- 
 --   /**
 --    * Cursor that represents the translation unit itself.
@@ -2678,7 +2690,7 @@ enum CursorKind {
   LambdaExpr = CXCursor_LambdaExpr,
   ObjCBoolLiteralExpr = CXCursor_ObjCBoolLiteralExpr,
   ObjCSelfExprCursor = CXCursor_ObjCSelfExpr,
-  OMPArraySectionExpr = CXCursor_OMPArraySectionExpr,
+  OMPArraySectionExpr = CXCursor_ArraySectionExpr,
   ObjCAvailabilityCheckExpr = CXCursor_ObjCAvailabilityCheckExpr,
   FixedPointLiteral = CXCursor_FixedPointLiteral,
   OMPArrayShapingExpr = CXCursor_OMPArrayShapingExpr,
@@ -2687,6 +2699,7 @@ enum CursorKind {
   ConceptSpecializationExpr = CXCursor_ConceptSpecializationExpr,
   RequiresExpr = CXCursor_RequiresExpr,
   CXXParenListInitExpr = CXCursor_CXXParenListInitExpr,
+  PackIndexingExpr = CXCursor_PackIndexingExpr,
   LastExpr = CXCursor_LastExpr,
   FirstStmt = CXCursor_FirstStmt,
   UnexposedStmtCursor = CXCursor_UnexposedStmt,
@@ -2796,6 +2809,11 @@ enum CursorKind {
   OMPParallelMaskedTaskLoopDirective = CXCursor_OMPParallelMaskedTaskLoopDirective,
   OMPParallelMaskedTaskLoopSimdDirective = CXCursor_OMPParallelMaskedTaskLoopSimdDirective,
   OMPErrorDirective = CXCursor_OMPErrorDirective,
+  OMPScopeDirective = CXCursor_OMPScopeDirective,
+  OMPReverseDirective = CXCursor_OMPReverseDirective,
+  OMPInterchangeDirective = CXCursor_OMPInterchangeDirective,
+  OpenACCComputeConstruct = CXCursor_OpenACCComputeConstruct,
+  OpenACCLoopConstruct = CXCursor_OpenACCLoopConstruct,
   LastStmt = CXCursor_LastStmt,
   TranslationUnitCursor = CXCursor_TranslationUnit,
   FirstAttr = CXCursor_FirstAttr,
@@ -2874,10 +2892,10 @@ firstRefCursor           = ObjCSuperClassRefCursor
 lastRefCursor            = VariableRefCursor
 firstInvalidCursor       = InvalidFileCursor
 lastInvalidCursor        = InvalidCodeCursor
-firstExprCursor          = UnexposedExprCursor
-lastExprCursor           = ObjCSelfExprCursor
-firstStmtCursor          = UnexposedStmtCursor
-lastStmtCursor           = OMPParallelDirectiveCursor
+firstExprCursor          = FirstExpr
+lastExprCursor           = LastExpr
+firstStmtCursor          = FirstStmt
+lastStmtCursor           = LastStmt
 firstAttrCursor          = UnexposedAttrCursor
 lastAttrCursor           = PackedAttrCursor
 firstPreprocessingCursor = PreprocessingDirectiveCursor
@@ -3601,9 +3619,20 @@ type_LastBuiltin  = Type_Ibm128
 --   CXCallingConv_X86Pascal = 5,
 --   CXCallingConv_AAPCS = 6,
 --   CXCallingConv_AAPCS_VFP = 7,
+--   CXCallingConv_X86RegCall = 8,
 --   CXCallingConv_IntelOclBicc = 9,
 --   CXCallingConv_X86_64Win64 = 10,
 --   CXCallingConv_X86_64SysV = 11,
+--   CXCallingConv_X86VectorCall = 12,
+--   CXCallingConv_Swift = 13,
+--   CXCallingConv_PreserveMost = 14,
+--   CXCallingConv_PreserveAll = 15,
+--   CXCallingConv_AArch64VectorCall = 16,
+--   CXCallingConv_SwiftAsync = 17,
+--   CXCallingConv_AArch64SVEPCS = 18,
+--   CXCallingConv_M68kRTD = 19,
+--   CXCallingConv_PreserveNone = 20,
+--   CXCallingConv_RISCVVectorCall = 21,
 --   CXCallingConv_Invalid = 100,
 --   CXCallingConv_Unexposed = 200
 -- };
@@ -3617,9 +3646,20 @@ enum CallingConv
   , CallingConv_X86Pascal   = CXCallingConv_X86Pascal
   , CallingConv_AAPCS       = CXCallingConv_AAPCS
   , CallingConv_AAPCS_VFP   = CXCallingConv_AAPCS_VFP
+  , CallingConv_X86RegCall  = CXCallingConv_X86RegCall
   , CallingConv_IntelOclBic = CXCallingConv_IntelOclBicc
   , CallingConv_X86_64Win64 = CXCallingConv_X86_64Win64
   , CallingConv_X86_64SysV  = CXCallingConv_X86_64SysV
+  , CallingConv_X86VectorCall = CXCallingConv_X86VectorCall
+  , CallingConv_Swift       = CXCallingConv_Swift
+  , CallingConv_PreserveMost = CXCallingConv_PreserveMost
+  , CallingConv_PreserveAll = CXCallingConv_PreserveAll
+  , CallingConv_AArch64VectorCall = CXCallingConv_AArch64VectorCall
+  , CallingConv_SwiftAsync  = CXCallingConv_SwiftAsync
+  , CallingConv_AArch64SVEPCS = CXCallingConv_AArch64SVEPCS
+  , CallingConv_M68kRTD     = CXCallingConv_M68kRTD
+  , CallingConv_PreserveNone = CXCallingConv_PreserveNone
+  , CallingConv_RISCVVectorCall = CXCallingConv_RISCVVectorCall
   , CallingConv_Invalid     = CXCallingConv_Invalid
   , CallingConv_Unexposed   = CXCallingConv_Unexposed
  };

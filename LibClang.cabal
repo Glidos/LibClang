@@ -1,6 +1,6 @@
 Cabal-version: 3.8
 Name: LibClang
-Version: 17
+Version: 19
 Author: Chetan Taralekar <chetant@gmail.com>
 Maintainer: Chetan Taralekar <chetant@gmail.com>, Seth Fowler <mark.seth.fowler@gmail.com>
 Homepage: https://github.com/chetant/LibClang
@@ -12,7 +12,7 @@ Description:
   .
   This should be enough for parsing C/C++ code, walking the AST and querying nodes and completion queries.
   .
-  * NOTE: This version is set to build against llvm 17
+  * NOTE: Kind lists match Clang 19 and this builds against libclang 17, 18, or 19
   .
   Please use <https://github.com/chetant/LibClang/issues> to report bugs
 
@@ -22,7 +22,7 @@ Tested-With: GHC == 7.8.4
            , GHC == 8.0.2
            , GHC == 9.8.4
 Build-type: Custom
-Extra-Source-Files: cbits/utils.h, cbits/visitors.h, cbits/wrappers.h,
+Extra-Source-Files: cbits/utils.h, cbits/visitors.h, cbits/wrappers.h, cbits/clang19-enums.h,
                     test/*.hs, test/*.c, test/runTest.sh, test/Makefile
 custom-setup
   setup-depends:
