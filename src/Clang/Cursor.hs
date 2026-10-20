@@ -11,6 +11,10 @@ module Clang.Cursor
 , getHash
 , getKind
 , getLinkage
+, getBinaryOperatorKind
+, getBinaryOperatorKindSpelling
+, getUnaryOperatorKind
+, getUnaryOperatorKindSpelling
 , getAvailability
 , getLanguage
 , getTranslationUnit
@@ -111,6 +115,18 @@ getKind = FFI.getCursorKind
 
 getLinkage :: ClangBase m => FFI.Cursor s' -> ClangT s m FFI.LinkageKind
 getLinkage c = liftIO $ FFI.getCursorLinkage c
+
+getBinaryOperatorKind :: ClangBase m => FFI.Cursor s' -> ClangT s m FFI.BinaryOperatorKind
+getBinaryOperatorKind c = liftIO $ FFI.getCursorBinaryOperatorKind c
+
+getBinaryOperatorKindSpelling :: ClangBase m => FFI.BinaryOperatorKind -> ClangT s m (Maybe (FFI.ClangString s))
+getBinaryOperatorKindSpelling = FFI.getBinaryOperatorKindSpelling
+
+getUnaryOperatorKind :: ClangBase m => FFI.Cursor s' -> ClangT s m FFI.UnaryOperatorKind
+getUnaryOperatorKind c = liftIO $ FFI.getCursorUnaryOperatorKind c
+
+getUnaryOperatorKindSpelling :: ClangBase m => FFI.UnaryOperatorKind -> ClangT s m (Maybe (FFI.ClangString s))
+getUnaryOperatorKindSpelling = FFI.getUnaryOperatorKindSpelling
 
 getAvailability  :: ClangBase m => FFI.Cursor s' -> ClangT s m FFI.AvailabilityKind
 getAvailability c = liftIO $ FFI.getCursorAvailability c

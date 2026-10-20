@@ -118,6 +118,8 @@ WRAPPED_HEADER(CXString,clang_FullComment_getAsHTML,(CXComment Comment));
 WRAPPED_HEADER(CXString,clang_FullComment_getAsXML,(CXComment Comment));
 WRAPPED_HEADER(CXString,clang_getTokenSpelling,(CXTranslationUnit tu, CXToken token));
 WRAPPED_HEADER(CXString,clang_getCursorKindSpelling,(enum CXCursorKind Kind));
+WRAPPED_HEADER(CXString,clang_getBinaryOperatorKindSpelling,(enum CXBinaryOperatorKind kind));
+WRAPPED_HEADER(CXString,clang_getUnaryOperatorKindSpelling,(enum CXUnaryOperatorKind kind));
 WRAPPED_HEADER(CXString,clang_getCompletionChunkText,(CXCompletionString completion_string, unsigned chunk_number));;
 WRAPPED_HEADER(CXString,clang_getCompletionAnnotation,(CXCompletionString completion_string, unsigned annotation_number));;
 WRAPPED_HEADER(CXString,clang_getCompletionParent,(CXCompletionString completion_string, enum CXCursorKind *kind));;

@@ -49,6 +49,8 @@ module Clang (
 , FFI.AvailabilityKind(..)
 , FFI.CursorKind(..)
 , FFI.LinkageKind(..)
+, FFI.BinaryOperatorKind(..)
+, FFI.UnaryOperatorKind(..)
 , FFI.LanguageKind(..)
 , FFI.Cursor
 , FFI.CursorSet

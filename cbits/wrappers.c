@@ -122,6 +122,8 @@ WRAPPED_IMPL(CXString,clang_FullComment_getAsHTML,(CXComment Comment),(Comment))
 WRAPPED_IMPL(CXString,clang_FullComment_getAsXML,(CXComment Comment),(Comment));
 WRAPPED_IMPL(CXString,clang_getTokenSpelling,(CXTranslationUnit tu, CXToken token),(tu, token));
 WRAPPED_IMPL(CXString,clang_getCursorKindSpelling,(enum CXCursorKind Kind),(Kind));
+WRAPPED_IMPL(CXString,clang_getBinaryOperatorKindSpelling,(enum CXBinaryOperatorKind kind),(kind));
+WRAPPED_IMPL(CXString,clang_getUnaryOperatorKindSpelling,(enum CXUnaryOperatorKind kind),(kind));
 WRAPPED_IMPL(CXString,clang_getCompletionChunkText,(CXCompletionString completion_string, unsigned chunk_number),(completion_string, chunk_number));;
 WRAPPED_IMPL(CXString,clang_getCompletionAnnotation,(CXCompletionString completion_string, unsigned annotation_number),(completion_string, annotation_number));;
 WRAPPED_IMPL(CXString,clang_getCompletionParent,(CXCompletionString completion_string, enum CXCursorKind *kind),(completion_string, kind));;

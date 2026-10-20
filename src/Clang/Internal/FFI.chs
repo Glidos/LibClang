@@ -132,6 +132,12 @@ module Clang.Internal.FFI
 , isUnexposed
 , LinkageKind(..)
 , getCursorLinkage
+, BinaryOperatorKind(..)
+, getCursorBinaryOperatorKind
+, getBinaryOperatorKindSpelling
+, UnaryOperatorKind(..)
+, getCursorUnaryOperatorKind
+, getUnaryOperatorKindSpelling
 , getCursorAvailability
 , PlatformAvailability(..)
 , PlatformAvailabilityInfo(..)
@@ -3161,6 +3167,103 @@ enum LinkageKind
 {# fun clang_getCursorLinkage {withVoided* %`Cursor a' } -> `Int' #}
 getCursorLinkage :: Cursor s -> IO LinkageKind
 getCursorLinkage c = clang_getCursorLinkage c >>= return . toEnum
+
+-- enum CXBinaryOperatorKind { CXBinaryOperator_Invalid, ... };
+#c
+enum BinaryOperatorKind
+  { BinaryOperator_Invalid   = CXBinaryOperator_Invalid
+  , BinaryOperator_PtrMemD   = CXBinaryOperator_PtrMemD
+  , BinaryOperator_PtrMemI   = CXBinaryOperator_PtrMemI
+  , BinaryOperator_Mul       = CXBinaryOperator_Mul
+  , BinaryOperator_Div       = CXBinaryOperator_Div
+  , BinaryOperator_Rem       = CXBinaryOperator_Rem
+  , BinaryOperator_Add       = CXBinaryOperator_Add
+  , BinaryOperator_Sub       = CXBinaryOperator_Sub
+  , BinaryOperator_Shl       = CXBinaryOperator_Shl
+  , BinaryOperator_Shr       = CXBinaryOperator_Shr
+  , BinaryOperator_Cmp       = CXBinaryOperator_Cmp
+  , BinaryOperator_LT        = CXBinaryOperator_LT
+  , BinaryOperator_GT        = CXBinaryOperator_GT
+  , BinaryOperator_LE        = CXBinaryOperator_LE
+  , BinaryOperator_GE        = CXBinaryOperator_GE
+  , BinaryOperator_EQ        = CXBinaryOperator_EQ
+  , BinaryOperator_NE        = CXBinaryOperator_NE
+  , BinaryOperator_And       = CXBinaryOperator_And
+  , BinaryOperator_Xor       = CXBinaryOperator_Xor
+  , BinaryOperator_Or        = CXBinaryOperator_Or
+  , BinaryOperator_LAnd      = CXBinaryOperator_LAnd
+  , BinaryOperator_LOr       = CXBinaryOperator_LOr
+  , BinaryOperator_Assign    = CXBinaryOperator_Assign
+  , BinaryOperator_MulAssign = CXBinaryOperator_MulAssign
+  , BinaryOperator_DivAssign = CXBinaryOperator_DivAssign
+  , BinaryOperator_RemAssign = CXBinaryOperator_RemAssign
+  , BinaryOperator_AddAssign = CXBinaryOperator_AddAssign
+  , BinaryOperator_SubAssign = CXBinaryOperator_SubAssign
+  , BinaryOperator_ShlAssign = CXBinaryOperator_ShlAssign
+  , BinaryOperator_ShrAssign = CXBinaryOperator_ShrAssign
+  , BinaryOperator_AndAssign = CXBinaryOperator_AndAssign
+  , BinaryOperator_XorAssign = CXBinaryOperator_XorAssign
+  , BinaryOperator_OrAssign  = CXBinaryOperator_OrAssign
+  , BinaryOperator_Comma     = CXBinaryOperator_Comma
+ };
+#endc
+{#enum BinaryOperatorKind {} deriving (Bounded, Eq, Ord, Read, Show, Typeable) #}
+
+-- enum CXBinaryOperatorKind clang_getCursorBinaryOperatorKind(CXCursor cursor);
+{# fun clang_getCursorBinaryOperatorKind {withVoided* %`Cursor a' } -> `Int' #}
+getCursorBinaryOperatorKind :: Cursor s -> IO BinaryOperatorKind
+getCursorBinaryOperatorKind c = clang_getCursorBinaryOperatorKind c >>= return . toEnum
+
+-- CXString clang_getBinaryOperatorKindSpelling(enum CXBinaryOperatorKind kind);
+{# fun wrapped_clang_getBinaryOperatorKindSpelling as clang_getBinaryOperatorKindSpelling { `CInt' } -> `Ptr (ClangString ())' castPtr #}
+unsafe_getBinaryOperatorKindSpelling :: BinaryOperatorKind -> IO (ClangString ())
+unsafe_getBinaryOperatorKindSpelling k =
+  clang_getBinaryOperatorKindSpelling (fromIntegral (fromEnum k)) >>= peek
+
+-- Invalid is 0. The C spelling function indexes getOpcodeStr(kind - 1), so
+-- Invalid must not be passed through.
+getBinaryOperatorKindSpelling :: ClangBase m => BinaryOperatorKind -> ClangT s m (Maybe (ClangString s))
+getBinaryOperatorKindSpelling BinaryOperator_Invalid = return Nothing
+getBinaryOperatorKindSpelling k =
+  Just <$> registerClangString (unsafe_getBinaryOperatorKindSpelling k)
+
+-- enum CXUnaryOperatorKind { CXUnaryOperator_Invalid, ... };
+#c
+enum UnaryOperatorKind
+  { UnaryOperator_Invalid   = CXUnaryOperator_Invalid
+  , UnaryOperator_PostInc   = CXUnaryOperator_PostInc
+  , UnaryOperator_PostDec   = CXUnaryOperator_PostDec
+  , UnaryOperator_PreInc    = CXUnaryOperator_PreInc
+  , UnaryOperator_PreDec    = CXUnaryOperator_PreDec
+  , UnaryOperator_AddrOf    = CXUnaryOperator_AddrOf
+  , UnaryOperator_Deref     = CXUnaryOperator_Deref
+  , UnaryOperator_Plus      = CXUnaryOperator_Plus
+  , UnaryOperator_Minus     = CXUnaryOperator_Minus
+  , UnaryOperator_Not       = CXUnaryOperator_Not
+  , UnaryOperator_LNot      = CXUnaryOperator_LNot
+  , UnaryOperator_Real      = CXUnaryOperator_Real
+  , UnaryOperator_Imag      = CXUnaryOperator_Imag
+  , UnaryOperator_Extension = CXUnaryOperator_Extension
+  , UnaryOperator_Coawait   = CXUnaryOperator_Coawait
+ };
+#endc
+{#enum UnaryOperatorKind {} deriving (Bounded, Eq, Ord, Read, Show, Typeable) #}
+
+-- enum CXUnaryOperatorKind clang_getCursorUnaryOperatorKind(CXCursor cursor);
+{# fun clang_getCursorUnaryOperatorKind {withVoided* %`Cursor a' } -> `Int' #}
+getCursorUnaryOperatorKind :: Cursor s -> IO UnaryOperatorKind
+getCursorUnaryOperatorKind c = clang_getCursorUnaryOperatorKind c >>= return . toEnum
+
+-- CXString clang_getUnaryOperatorKindSpelling(enum CXUnaryOperatorKind kind);
+{# fun wrapped_clang_getUnaryOperatorKindSpelling as clang_getUnaryOperatorKindSpelling { `CInt' } -> `Ptr (ClangString ())' castPtr #}
+unsafe_getUnaryOperatorKindSpelling :: UnaryOperatorKind -> IO (ClangString ())
+unsafe_getUnaryOperatorKindSpelling k =
+  clang_getUnaryOperatorKindSpelling (fromIntegral (fromEnum k)) >>= peek
+
+getUnaryOperatorKindSpelling :: ClangBase m => UnaryOperatorKind -> ClangT s m (Maybe (ClangString s))
+getUnaryOperatorKindSpelling UnaryOperator_Invalid = return Nothing
+getUnaryOperatorKindSpelling k =
+  Just <$> registerClangString (unsafe_getUnaryOperatorKindSpelling k)
 
 -- enum CXAvailabilityKind clang_getCursorAvailability(CXCursor cursor);
 {# fun clang_getCursorAvailability {withVoided* %`Cursor a' } -> `Int' #}
