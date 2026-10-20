@@ -2880,6 +2880,8 @@ enum CursorKind {
 {#enum CursorKind{} deriving (Bounded, Eq, Ord, Read, Show, Typeable) #}
 
 -- CursorKind ranges.
+-- c2hs orders the constructors by C value, so Ord follows the numbers. Older
+-- headers give LastExpr and LastStmt values below the kinds clang19-enums.h adds.
 firstDeclCursor, lastDeclCursor, firstRefCursor, lastRefCursor         :: CursorKind
 firstInvalidCursor, lastInvalidCursor, firstExprCursor, lastExprCursor :: CursorKind
 firstStmtCursor, lastStmtCursor, firstAttrCursor, lastAttrCursor       :: CursorKind
@@ -2890,18 +2892,18 @@ firstDeclCursor          = UnexposedDeclCursor
 lastDeclCursor           = CXXAccessSpecifierCursor
 firstRefCursor           = ObjCSuperClassRefCursor
 lastRefCursor            = VariableRefCursor
-firstInvalidCursor       = InvalidFileCursor
-lastInvalidCursor        = InvalidCodeCursor
+firstInvalidCursor       = FirstInvalid
+lastInvalidCursor        = LastInvalid
 firstExprCursor          = FirstExpr
-lastExprCursor           = LastExpr
+lastExprCursor           = max LastExpr PackIndexingExpr
 firstStmtCursor          = FirstStmt
-lastStmtCursor           = LastStmt
-firstAttrCursor          = UnexposedAttrCursor
-lastAttrCursor           = PackedAttrCursor
+lastStmtCursor           = max LastStmt OpenACCLoopConstruct
+firstAttrCursor          = FirstAttr
+lastAttrCursor           = LastAttr
 firstPreprocessingCursor = PreprocessingDirectiveCursor
 lastPreprocessingCursor  = InclusionDirectiveCursor
 firstExtraDeclCursor     = ModuleImportDeclCursor
-lastExtraDeclCursor      = ModuleImportDeclCursor
+lastExtraDeclCursor      = LastExtraDecl
 
 -- CursorKind aliases.
 gccAsmStmtCursor, macroInstantiationCursor :: CursorKind
@@ -3072,7 +3074,8 @@ isPreprocessing k =
 -- unsigned clang_isUnexposed(enum CursorKind);
 isUnexposed :: CursorKind -> Bool
 isUnexposed k =
-  (k >= firstPreprocessingCursor && k <= lastPreprocessingCursor)
+  fromEnum k `elem` map fromEnum [ UnexposedDeclCursor, UnexposedExprCursor
+                                 , UnexposedStmtCursor, UnexposedAttrCursor ]
 {-# INLINE isUnexposed #-}
 
 -- enum CXLinkageKind {
