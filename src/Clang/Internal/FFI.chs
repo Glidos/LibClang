@@ -347,6 +347,7 @@ import Control.Monad.Trans
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Unsafe as BU
 import Data.Hashable
+import qualified Data.IntSet as IntSet
 import Data.Typeable (Typeable)
 import qualified Data.Vector as DV
 import qualified Data.Vector.Storable as DVS
@@ -1383,6 +1384,28 @@ createTranslationUnit = (registerTranslationUnit .) . unsafe_createTranslationUn
 -- * 'IncludeBriefCommentsInCodeCompletionFlag': Used to indicate that brief documentation
 --   comments should be included into the set of code completions returned from this
 --   translation unit.
+--
+-- * 'CreatePreambleOnFirstParseFlag': Used to indicate that the precompiled preamble should
+--   be created on the first parse. Otherwise it will be created on the first reparse.
+--
+-- * 'KeepGoingFlag': Do not stop processing when fatal errors are encountered.
+--
+-- * 'SingleFileParseFlag': Sets the preprocessor in a mode for parsing a single file only.
+--
+-- * 'LimitSkipFunctionBodiesToPreambleFlag': Used in combination with
+--   'SkipFunctionBodiesFlag' to constrain the skipping of function bodies to the preamble.
+--
+-- * 'IncludeAttributedTypesFlag': Used to indicate that attributed types should be included
+--   in 'Type'.
+--
+-- * 'VisitImplicitAttributesFlag': Used to indicate that implicit attributes should be
+--   visited.
+--
+-- * 'IgnoreNonErrorsFromIncludedFilesFlag': Used to indicate that non-errors from included
+--   files should be ignored.
+--
+-- * 'RetainExcludedConditionalBlocksFlag': Tells the preprocessor not to skip excluded
+--   conditional blocks.
 #c
 enum TranslationUnitFlags
   { DefaultTranslationUnitFlags              = CXTranslationUnit_None
@@ -1394,6 +1417,14 @@ enum TranslationUnitFlags
   , ChainedPCHFlag                           = CXTranslationUnit_CXXChainedPCH
   , SkipFunctionBodiesFlag                   = CXTranslationUnit_SkipFunctionBodies
   , IncludeBriefCommentsInCodeCompletionFlag = CXTranslationUnit_IncludeBriefCommentsInCodeCompletion
+  , CreatePreambleOnFirstParseFlag           = CXTranslationUnit_CreatePreambleOnFirstParse
+  , KeepGoingFlag                            = CXTranslationUnit_KeepGoing
+  , SingleFileParseFlag                      = CXTranslationUnit_SingleFileParse
+  , LimitSkipFunctionBodiesToPreambleFlag    = CXTranslationUnit_LimitSkipFunctionBodiesToPreamble
+  , IncludeAttributedTypesFlag               = CXTranslationUnit_IncludeAttributedTypes
+  , VisitImplicitAttributesFlag              = CXTranslationUnit_VisitImplicitAttributes
+  , IgnoreNonErrorsFromIncludedFilesFlag     = CXTranslationUnit_IgnoreNonErrorsFromIncludedFiles
+  , RetainExcludedConditionalBlocksFlag      = CXTranslationUnit_RetainExcludedConditionalBlocks
  };
 #endc
 {# enum TranslationUnitFlags {} deriving  (Bounded, Eq, Ord, Read, Show, Typeable) #}
@@ -1408,6 +1439,14 @@ instance BitFlags TranslationUnitFlags where
   toBit ChainedPCHFlag                           = 0x20
   toBit SkipFunctionBodiesFlag                   = 0x40
   toBit IncludeBriefCommentsInCodeCompletionFlag = 0x80
+  toBit CreatePreambleOnFirstParseFlag           = 0x100
+  toBit KeepGoingFlag                            = 0x200
+  toBit SingleFileParseFlag                      = 0x400
+  toBit LimitSkipFunctionBodiesToPreambleFlag    = 0x800
+  toBit IncludeAttributedTypesFlag               = 0x1000
+  toBit VisitImplicitAttributesFlag              = 0x2000
+  toBit IgnoreNonErrorsFromIncludedFilesFlag     = 0x4000
+  toBit RetainExcludedConditionalBlocksFlag      = 0x8000
 
 -- unsigned clang_defaultEditingTranslationUnitOptions(void);
 {# fun clang_defaultEditingTranslationUnitOptions as defaultEditingTranslationUnitOptions {} -> `Int' #}
@@ -2958,7 +2997,7 @@ instance Storable (Cursor s) where
       cursorKind <- {#get CXCursor->kind #} p
       xdata <- {#get CXCursor->xdata #} p
       cursorData <- {#get CXCursor->data #} p >>= peekArray 3
-      return $! Cursor (toEnum (fromIntegral cursorKind)) (fromIntegral xdata) (cursorData !! 0) (cursorData !! 1) (cursorData !! 2)
+      return $! Cursor (decodeCursorKind (fromIntegral cursorKind)) (fromIntegral xdata) (cursorData !! 0) (cursorData !! 1) (cursorData !! 2)
     {-# INLINE peek #-}
 
     poke p (Cursor kind xdata p0 p1 p2)= do
@@ -3077,6 +3116,28 @@ isUnexposed k =
   fromEnum k `elem` map fromEnum [ UnexposedDeclCursor, UnexposedExprCursor
                                  , UnexposedStmtCursor, UnexposedAttrCursor ]
 {-# INLINE isUnexposed #-}
+
+toEnumOr :: Enum a => IntSet.IntSet -> a -> Int -> a
+toEnumOr known fallback n
+  | n `IntSet.member` known = toEnum n
+  | otherwise               = fallback
+{-# INLINE toEnumOr #-}
+
+-- | Decodes a cursor kind from libclang. A kind this binding does not know,
+-- from a newer libclang, becomes the unexposed kind of its range.
+decodeCursorKind :: Int -> CursorKind
+decodeCursorKind n = toEnumOr knownCursorKinds fallback n
+  where
+    fallback
+      | n `inRange` (FirstExpr, FirstStmt)             = unexposed UnexposedExprCursor
+      | n `inRange` (FirstStmt, TranslationUnitCursor) = unexposed UnexposedStmtCursor
+      | n `inRange` (FirstAttr, FirstPreprocessing)    = unexposed UnexposedAttrCursor
+      | otherwise                                      = UnexposedDeclCursor
+    inRange v (lo, hi) = v >= fromEnum lo && v < fromEnum hi
+    unexposed = toEnum . fromEnum
+
+knownCursorKinds :: IntSet.IntSet
+knownCursorKinds = IntSet.fromList (map fromEnum [minBound .. maxBound :: CursorKind])
 
 -- enum CXLinkageKind {
 --   CXLinkage_Invalid,
@@ -3613,6 +3674,14 @@ type_FirstBuiltin, type_LastBuiltin :: TypeKind
 type_FirstBuiltin = Type_Void
 type_LastBuiltin  = Type_Ibm128
 
+-- | Decodes a type kind from libclang. A kind this binding does not know
+-- becomes 'Type_Unexposed'.
+decodeTypeKind :: Int -> TypeKind
+decodeTypeKind = toEnumOr knownTypeKinds Type_Unexposed
+
+knownTypeKinds :: IntSet.IntSet
+knownTypeKinds = IntSet.fromList (map fromEnum [minBound .. maxBound :: TypeKind])
+
 -- enum CXCallingConv {
 --   CXCallingConv_Default = 0,
 --   CXCallingConv_C = 1,
@@ -3669,6 +3738,14 @@ enum CallingConv
 #endc
 {# enum CallingConv {} deriving  (Bounded, Eq, Ord, Read, Show, Typeable) #}
 
+-- | Decodes a calling convention from libclang. A convention this binding
+-- does not know becomes 'CallingConv_Unexposed'.
+decodeCallingConv :: Int -> CallingConv
+decodeCallingConv = toEnumOr knownCallingConvs CallingConv_Unexposed
+
+knownCallingConvs :: IntSet.IntSet
+knownCallingConvs = IntSet.fromList (map fromEnum [minBound .. maxBound :: CallingConv])
+
 -- typedef struct {
 --   enum CXTypeKind kind;
 --   void *data[2];
@@ -3688,7 +3765,7 @@ instance Storable (Type s) where
     peek p = do
       kindCInt <- {#get CXType->kind #} p
       ptrsArray <- {#get CXType->data #} p >>= peekArray 2
-      return $! Type (toEnum (fromIntegral kindCInt)) (ptrsArray !! 0) (ptrsArray !! 1)
+      return $! Type (decodeTypeKind (fromIntegral kindCInt)) (ptrsArray !! 0) (ptrsArray !! 1)
     {-# INLINE peek #-}
 
     poke p (Type kind p0 p1)= do
@@ -3815,7 +3892,7 @@ getTypeKindSpelling = registerClangString . unsafe_getTypeKindSpelling
 -- enum CXCallingConv clang_getFunctionTypeCallingConv(CXType T);
 {# fun clang_getFunctionTypeCallingConv { withVoided* %`Type a' } -> `CInt' id #}
 getFunctionTypeCallingConv :: Type s' -> IO CallingConv
-getFunctionTypeCallingConv t = clang_getFunctionTypeCallingConv t >>= return . toEnum . fromIntegral
+getFunctionTypeCallingConv t = clang_getFunctionTypeCallingConv t >>= return . decodeCallingConv . fromIntegral
 
 -- CXType clang_getResultType(CXType T);
 {# fun wrapped_clang_getResultType as clang_getResultType { withVoided* %`Type a' } -> `Ptr (Type s)' castPtr #}
@@ -3872,7 +3949,8 @@ getArraySize t = clang_getArraySize t
 --   CXTypeLayoutError_Incomplete = -2,
 --   CXTypeLayoutError_Dependent = -3,
 --   CXTypeLayoutError_NotConstantSize = -4,
---   CXTypeLayoutError_InvalidFieldName = -5
+--   CXTypeLayoutError_InvalidFieldName = -5,
+--   CXTypeLayoutError_Undeduced = -6
 -- };
 #c
 enum TypeLayoutError
@@ -3881,6 +3959,7 @@ enum TypeLayoutError
   , TypeLayoutError_Dependent        = CXTypeLayoutError_Dependent
   , TypeLayoutError_NotConstantSize  = CXTypeLayoutError_NotConstantSize
   , TypeLayoutError_InvalidFieldName = CXTypeLayoutError_InvalidFieldName
+  , TypeLayoutError_Undeduced        = CXTypeLayoutError_Undeduced
  };
 #endc
 {# enum TypeLayoutError {} deriving  (Bounded, Eq, Ord, Read, Show, Typeable) #}
@@ -3891,6 +3970,7 @@ int64OrLayoutError v | v == -1   = Left TypeLayoutError_Invalid
                      | v == -3   = Left TypeLayoutError_Dependent
                      | v == -4   = Left TypeLayoutError_NotConstantSize
                      | v == -5   = Left TypeLayoutError_InvalidFieldName
+                     | v == -6   = Left TypeLayoutError_Undeduced
                      | otherwise = Right v
 
 -- long long clang_Type_getAlignOf(CXType T);
@@ -4571,7 +4651,7 @@ cXXMethod_isVirtual c = clang_Cursor_isBitField c
 {# fun clang_getTemplateCursorKind {withVoided* %`Cursor a' } -> `Int' #}
 getTemplateCursorKind :: Cursor s -> IO CursorKind
 getTemplateCursorKind c =
-  clang_getTemplateCursorKind c >>= return . toEnum
+  clang_getTemplateCursorKind c >>= return . decodeCursorKind
 
 -- CXCursor clang_getSpecializedCursorTemplate(CXCursor C);
 {# fun wrapped_clang_getSpecializedCursorTemplate as clang_getSpecializedCursorTemplate {withVoided* %`Cursor a' } -> `Ptr (Cursor s)' castPtr #}
@@ -4643,7 +4723,8 @@ enum CommentKind
 --   CXCommentInlineCommandRenderKind_Normal,
 --   CXCommentInlineCommandRenderKind_Bold,
 --   CXCommentInlineCommandRenderKind_Monospaced,
---   CXCommentInlineCommandRenderKind_Emphasized
+--   CXCommentInlineCommandRenderKind_Emphasized,
+--   CXCommentInlineCommandRenderKind_Anchor
 -- };
 
 -- | A rendering style which should be used for the associated inline command in the comment AST.
@@ -4653,6 +4734,7 @@ enum InlineCommandRenderStyle
   , BoldInlineCommandRenderStyle       = CXCommentInlineCommandRenderKind_Bold
   , MonospacedInlineCommandRenderStyle = CXCommentInlineCommandRenderKind_Monospaced
   , EmphasizedInlineCommandRenderStyle = CXCommentInlineCommandRenderKind_Emphasized
+  , AnchorInlineCommandRenderStyle     = CXCommentInlineCommandRenderKind_Anchor
  };
 #endc
 {# enum InlineCommandRenderStyle {} deriving (Bounded, Eq, Ord, Read, Show, Typeable) #}
@@ -5311,7 +5393,9 @@ getCursorCompletionString c =
 -- enum CXCodeComplete_Flags {
 --   CXCodeComplete_IncludeMacros = 0x01,
 --   CXCodeComplete_IncludeCodePatterns = 0x02,
---   CXCodeComplete_IncludeBriefComments = 0x04
+--   CXCodeComplete_IncludeBriefComments = 0x04,
+--   CXCodeComplete_SkipPreamble = 0x08,
+--   CXCodeComplete_IncludeCompletionsWithFixIts = 0x10
 -- };
 
 -- | Flags that can be used to modify the behavior of 'codeCompleteAt'.
@@ -5324,19 +5408,29 @@ getCursorCompletionString c =
 --
 -- * 'IncludeBriefComments': Whether to include brief documentation within the set of code
 --   completions returned.
+--
+-- * 'SkipPreamble': Whether to speed up completion by omitting top- or namespace-level
+--   entities defined in the preamble.
+--
+-- * 'IncludeCompletionsWithFixIts': Whether to include completions with small fix-its,
+--   e.g. change '.' to '->' on member access.
 #c
 enum CodeCompleteFlags
-  { IncludeMacros        = CXCodeComplete_IncludeMacros
-  , IncludeCodePatterns  = CXCodeComplete_IncludeCodePatterns
-  , IncludeBriefComments = CXCodeComplete_IncludeBriefComments
+  { IncludeMacros                = CXCodeComplete_IncludeMacros
+  , IncludeCodePatterns          = CXCodeComplete_IncludeCodePatterns
+  , IncludeBriefComments         = CXCodeComplete_IncludeBriefComments
+  , SkipPreamble                 = CXCodeComplete_SkipPreamble
+  , IncludeCompletionsWithFixIts = CXCodeComplete_IncludeCompletionsWithFixIts
  };
 #endc
 {# enum CodeCompleteFlags {} deriving  (Bounded, Eq, Ord, Read, Show, Typeable) #}
 
 instance BitFlags CodeCompleteFlags where
-  toBit IncludeMacros        = 0x01
-  toBit IncludeCodePatterns  = 0x02
-  toBit IncludeBriefComments = 0x04
+  toBit IncludeMacros                = 0x01
+  toBit IncludeCodePatterns          = 0x02
+  toBit IncludeBriefComments         = 0x04
+  toBit SkipPreamble                 = 0x08
+  toBit IncludeCompletionsWithFixIts = 0x10
 
 -- unsigned clang_defaultCodeCompleteOptions(void);
 {# fun clang_defaultCodeCompleteOptions as defaultCodeCompleteOptions {} -> `Int' #}
@@ -5398,7 +5492,7 @@ unsafe_codeCompleteGetResult :: CodeCompleteResults s -> Int -> IO (CompletionSt
 unsafe_codeCompleteGetResult rs idx = do
  sPtr <- mallocBytes (sizeOf (undefined :: (Ptr (Ptr ()))))
  kind <- codeCompleteGetResult' (unCodeCompleteResults rs) (fromIntegral idx) (castPtr sPtr)
- return ((CompletionString sPtr), toEnum (fromIntegral kind))
+ return ((CompletionString sPtr), decodeCursorKind (fromIntegral kind))
 
 codeCompleteGetResult :: ClangBase m => CodeCompleteResults s' -> Int
                       -> ClangT s m (CompletionString s, CursorKind)
@@ -5530,6 +5624,9 @@ codeCompleteGetDiagnostic = (registerDiagnostic .) . unsafe_codeCompleteGetDiagn
 --
 -- * 'NaturalLanguageCompletionContext': Natural language completions should be included in the
 --   results.
+--
+-- * 'IncludedFileCompletionContext': #include file completions should be included in the
+--   results.
 #c
 enum CompletionContext
   { UnexposedCompletionContext            = CXCompletionContext_Unexposed
@@ -5555,6 +5652,7 @@ enum CompletionContext
   , ObjCSelectorNameCompletionContext     = CXCompletionContext_ObjCSelectorName
   , MacroNameCompletionContext            = CXCompletionContext_MacroName
   , NaturalLanguageCompletionContext      = CXCompletionContext_NaturalLanguage
+  , IncludedFileCompletionContext         = CXCompletionContext_IncludedFile
  };
 #endc
 {# enum CompletionContext {} deriving (Bounded, Eq, Ord, Read, Show, Typeable) #}
@@ -5584,6 +5682,7 @@ instance BitFlags CompletionContext where
   toBit ObjCSelectorNameCompletionContext    = 0x80000
   toBit MacroNameCompletionContext           = 0x100000
   toBit NaturalLanguageCompletionContext     = 0x200000
+  toBit IncludedFileCompletionContext        = 0x400000
 
 -- unsigned long long clang_codeCompleteGetContexts(CXCodeCompleteResults *Results);
 {# fun clang_codeCompleteGetContexts { id `Ptr ()' } -> `Int64' #}
@@ -5598,7 +5697,7 @@ codeCompleteGetContainerKind rs =
   alloca (\(iPtr :: (Ptr CUInt)) -> do
      k <- clang_codeCompleteGetContainerKind (unCodeCompleteResults rs) iPtr
      bool <- peek iPtr
-     return (toEnum k, toBool ((fromIntegral bool) :: Int)))
+     return (decodeCursorKind k, toBool ((fromIntegral bool) :: Int)))
 
 -- CXString clang_codeCompleteGetContainerUSR(CXCodeCompleteResults *Results);
 {# fun clang_codeCompleteGetContainerUSR { id `Ptr ()' } -> `Ptr (ClangString ())' castPtr #}
